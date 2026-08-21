@@ -1,0 +1,225 @@
+/* ==========================================
+   Auth Layout & Forms
+   ========================================== */
+
+.auth-layout {
+  min-height: 100svh;
+  /* Don't set height:100% — let content grow and allow scroll */
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-black);
+  overflow-y: auto;
+}
+
+/* ------------------------------------------
+   Shared Navbar (Landing + Auth pages)
+   ------------------------------------------ */
+.shared-nav {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg) var(--space-2xl);
+  border-bottom: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.shared-nav__logo {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.shared-nav__bracket {
+  color: var(--color-orange);
+  font-weight: 300;
+}
+
+.shared-nav__text {
+  color: var(--color-white);
+}
+
+.shared-nav__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.auth-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* vertical padding so card has breathing room when it doesn't fill the height */
+  padding: var(--space-xl);
+  /* on small screens where the card taller than remaining space, pad nicely */
+  padding-block: var(--space-2xl);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background-color: var(--color-black-light);
+  border: var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.auth-header {
+  text-align: center;
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+  color: var(--color-white);
+}
+
+.auth-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-gray-light);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.auth-footer {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-gray-light);
+}
+
+.auth-link {
+  color: var(--color-orange);
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.auth-link:hover {
+  color: var(--color-orange-hover);
+}
+
+/* ==========================================
+   Common Form Components (Input, Button)
+   ========================================== */
+
+/* Input */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.input-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-white-dim);
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-black-lighter);
+  border: 1px solid var(--color-gray-dark);
+  border-radius: var(--radius-sm);
+  color: var(--color-white);
+  font-family: var(--font-primary);
+  font-size: 0.9375rem;
+  transition: border-color var(--transition-fast);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--color-orange);
+}
+
+.input-field--error {
+  border-color: #ff5f57;
+}
+
+.input-error {
+  font-size: 0.75rem;
+  color: #ff5f57;
+  margin-top: 2px;
+}
+
+/* Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-family: var(--font-primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn--full {
+  width: 100%;
+}
+
+.btn--primary {
+  background-color: var(--color-orange);
+  color: var(--color-black);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--color-orange-hover);
+}
+
+.btn--outline {
+  border: 1px solid var(--color-gray-dark);
+  color: var(--color-white);
+  background-color: transparent;
+}
+
+.btn--outline:hover:not(:disabled) {
+  border-color: var(--color-gray);
+  background-color: var(--color-black-lighter);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Global Error Alert */
+.alert-error {
+  background-color: rgba(255, 95, 87, 0.1);
+  border: 1px solid rgba(255, 95, 87, 0.2);
+  color: #ff5f57;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  text-align: left;
+}

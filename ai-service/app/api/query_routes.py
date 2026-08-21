@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, text
 from datetime import datetime, timezone
+from decimal import Decimal
+import csv
+import io
 
 from app.db.connection import get_db
 from app.db.models import DatabaseConnection, AuditLog
 from app.db.vector_store import search_schema
-from app.models.auth_models import QueryRequest, QueryResponse
+from app.models.auth_models import QueryRequest, QueryResponse, ExportRequest
 from app.api.dependencies import get_current_user
 
 from app.services.encryption import decrypt_db_url
@@ -110,8 +115,16 @@ def execute_nl_query(
     except HTTPException:
         raise  # Re-raise HTTP exceptions directly, don't wrap them
     except Exception as e:
+        err_str = str(e)
+        # Mistral / LLM API rate limit
+        if "429" in err_str or "capacity exceeded" in err_str.lower() or "rate limit" in err_str.lower():
+            _log_audit(db, user_id, connection.id, request.question, None, "ERROR", None) # type: ignore
+            raise HTTPException(
+                status_code=503,
+                detail="The AI service is currently busy (rate limit reached). Please wait a few seconds and try again."
+            )
         _log_audit(db, user_id, connection.id, request.question, None, "ERROR", None) # type: ignore
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=err_str)
 
 
 def _log_audit(db: Session, user_id, connection_id, question: str, sql_gen: str | None, status: str, row_count: int | None):
@@ -129,3 +142,77 @@ def _log_audit(db: Session, user_id, connection_id, question: str, sql_gen: str 
         db.commit()
     except Exception:
         db.rollback()
+
+
+@router.post("/export")
+def export_query_as_csv(
+    request: ExportRequest,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Streams the FULL result of an already-validated SQL query as a CSV file.
+    The SQL must come from a previous successful query (already AI-generated and validated).
+    We do a final safety check here too before executing.
+    """
+    user_id = user["sub"]
+
+    # 1. Verify connection belongs to the user
+    connection = db.query(DatabaseConnection).filter(
+        DatabaseConnection.id == request.connection_id,
+        DatabaseConnection.user_id == user_id
+    ).first()
+
+    if not connection:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+
+    # 2. Final safety re-validation (defence in depth — never trust frontend-sent SQL blindly)
+    from app.services.validator import is_safe_sql
+    validation = is_safe_sql(request.sql_used)
+    if not validation["is_valid"]:
+        raise HTTPException(status_code=400, detail=f"SQL rejected: {validation['reason']}")
+
+    try:
+        from app.services.encryption import decrypt_db_url
+        decrypted_url = decrypt_db_url(str(connection.encrypted_db_url))
+
+        def generate_csv():
+            engine = create_engine(decrypted_url, connect_args={"connect_timeout": 10})
+            with engine.connect() as conn:
+                result = conn.execute(text(request.sql_used))
+                columns = list(result.keys())
+
+                output = io.StringIO()
+                writer = csv.writer(output)
+
+                # Write header row
+                writer.writerow(columns)
+                yield output.getvalue()
+                output.truncate(0)
+                output.seek(0)
+
+                # Stream rows one at a time — memory efficient for huge results
+                for row in result:
+                    writer.writerow([
+                        float(v) if isinstance(v, Decimal)
+                        else v.isoformat() if hasattr(v, 'isoformat')
+                        else v
+                        for v in row
+                    ])
+                    yield output.getvalue()
+                    output.truncate(0)
+                    output.seek(0)
+
+        safe_filename = "".join(c for c in request.filename if c.isalnum() or c in "_-") or "export"
+        headers = {
+            "Content-Disposition": f'attachment; filename="{safe_filename}.csv"',
+            "Cache-Control": "no-cache",
+        }
+        return StreamingResponse(
+            generate_csv(),
+            media_type="text/csv",
+            headers=headers
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

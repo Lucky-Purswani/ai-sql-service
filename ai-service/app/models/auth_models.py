@@ -52,6 +52,14 @@ class AddConnectionResponse(BaseModel):
     connection_id: UUID
     tables_synced: int
 
+class ConnectionResponse(BaseModel):
+    id: UUID
+    nickname: str
+    created_at: str # ISO format string for frontend parsing
+
+class ConnectionListResponse(BaseModel):
+    connections: list[ConnectionResponse]
+
 # ==========================================
 # Query Execution
 # ==========================================
@@ -65,3 +73,8 @@ class QueryResponse(BaseModel):
     columns: list[str]
     sample_rows: list[dict]
     total_rows: int
+
+class ExportRequest(BaseModel):
+    connection_id: UUID
+    sql_used: str   # The already-validated SQL from a previous query result
+    filename: str = "export"  # Optional custom filename

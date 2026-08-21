@@ -3,12 +3,37 @@ from sqlalchemy.orm import Session
 
 from app.db.connection import get_db
 from app.db.models import DatabaseConnection
-from app.models.auth_models import AddConnectionRequest, AddConnectionResponse
+from app.models.auth_models import (
+    AddConnectionRequest, AddConnectionResponse,
+    ConnectionResponse, ConnectionListResponse
+)
 from app.api.dependencies import get_current_user
 from app.services.encryption import encrypt_db_url
 from app.services.schema_scanner import scan_and_embed_database
 
 router = APIRouter()
+
+@router.get("/", response_model=ConnectionListResponse)
+def get_connections(
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns a list of all database connections for the logged-in user.
+    """
+    user_id = user["sub"]
+    connections = db.query(DatabaseConnection).filter(DatabaseConnection.user_id == user_id).order_by(DatabaseConnection.created_at.desc()).all()
+    
+    result = []
+    for conn in connections:
+        result.append(
+            ConnectionResponse(
+                id=conn.id, # type: ignore
+                nickname=conn.nickname, # type: ignore
+                created_at=conn.created_at.isoformat() if conn.created_at else ""
+            )
+        )
+    return ConnectionListResponse(connections=result)
 
 @router.post("/", response_model=AddConnectionResponse)
 def add_database_connection(
@@ -105,3 +130,34 @@ def sync_database_connection(
         "message": "Database schema resynced successfully!",
         "tables_synced": tables_synced
     }
+
+@router.delete("/{connection_id}")
+def delete_connection(
+    connection_id: str,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Deletes a database connection and its associated AI embeddings.
+    """
+    user_id = user["sub"]
+    
+    connection = db.query(DatabaseConnection).filter(
+        DatabaseConnection.id == connection_id,
+        DatabaseConnection.user_id == user_id
+    ).first()
+    
+    if not connection:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+        
+    # Delete embeddings from vector store first
+    try:
+        delete_embeddings(connection_id)
+    except Exception as e:
+        print(f"Warning: Failed to delete embeddings for {connection_id}: {e}")
+        
+    # Delete connection from DB
+    db.delete(connection)
+    db.commit()
+    
+    return {"message": "Database connection successfully deleted."}
